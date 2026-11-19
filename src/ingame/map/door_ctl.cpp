@@ -3357,6 +3357,11 @@ u_char DoorHitCheck2(u_short pos_x, u_short pos_y, u_char room_id)
     return 0;
 }
 
+/* The state of the door DoorCoverCheck last hit (door_wrk[].stts): 1 is a
+ * closed door's cover area, 3, 4 and 6 an opening, open or closing door's
+ * panel. The over-the-shoulder camera passes open doors but not closed ones. */
+u_char door_cover_hit_stts = 0;
+
 u_char DoorCoverCheck(u_short pos_x, short int pos_y, u_short pos_z, u_char room_id)
 {
     DOOR_TYPE_DAT *dtdp;
@@ -3487,6 +3492,7 @@ u_char DoorCoverCheck(u_short pos_x, short int pos_y, u_short pos_z, u_char room
             {
                 if (door_wrk[j].pos[1] - 900.0f <= pos_y && pos_y <= door_wrk[j].pos[1])
                 {
+                    door_cover_hit_stts = door_wrk[j].stts;
                     return 1;
                 }
             }

@@ -71,6 +71,11 @@ int MikuPan_OverShoulderOwnsMovement(void);
  * only show the inside of her model. */
 int MikuPan_OverShoulderShouldHidePlayerModel(void);
 
+/* Called for each room and furniture piece the renderer visits, with its
+ * local-to-world matrix and the 8 corners of its local bounding box: the
+ * camera takes the heights of low furniture from these. */
+void MikuPan_OverShoulderRecordUnitBox(sceVu0FMATRIX lwmtx, sceVu0FVECTOR* corners);
+
 /* What limited the camera's distance this frame, for the debug overlay. */
 typedef struct {
     int valid;
@@ -85,6 +90,10 @@ typedef struct {
     unsigned char hit_kind, hit_room, hit_area, hit_xz_only;
     unsigned short hit_furn_id;
     short hit_furn_top, hit_furn_btm;
+    int boxes;            /* room pieces known this frame */
+    int hit_boxes;        /* small pieces covering the limiting point */
+    float hit_box_top;    /* the tallest of them, above feet */
+    unsigned char hit_door_state;
 } MikuPan_OtsCollisionDebug;
 
 const MikuPan_OtsCollisionDebug* MikuPan_OverShoulderCollisionDebug(void);

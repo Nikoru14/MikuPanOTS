@@ -5,6 +5,7 @@
 #include "common/ul_math.h"
 #include "ingame/map/map_ctrl.h"
 #include "ingame/map/map_htck.h"
+#include "ingame/map/door_ctl.h"
 #include "ingame/plyr/plyr_ctl.h"
 #include "ingame/plyr/unit_ctl.h"
 #include "graphics/graph3d/sglib.h"
@@ -426,6 +427,107 @@ static int OtsCanOwnGameplay(void)
 #define OTS_SOFT 1
 #define OTS_HARD 2
 
+/* The heights of the room's pieces, from the bounding boxes the renderer
+ * visits (the walking collision's room hit areas have none). A piece no
+ * bigger than this across counts as one object; bigger boxes hold whole
+ * walls or rooms and say nothing about a single table. */
+#define OTS_BOX_MAX 2048
+#define OTS_SMALL_BOX_AREA (1600.0f * 1600.0f)
+/* How far above a piece's top the camera must be to pass over it. */
+#define OTS_LOW_PIECE_MARGIN 60.0f
+
+typedef struct {
+    float x0, x1, y0, y1, z0, z1;
+} OtsBox;
+
+static OtsBox ots_boxes[2][OTS_BOX_MAX];
+static int ots_box_count[2];
+static int ots_box_read = 0;
+
+void MikuPan_OverShoulderRecordUnitBox(sceVu0FMATRIX lwmtx, sceVu0FVECTOR* corners)
+{
+    OtsBox* box;
+    int write = ots_box_read ^ 1;
+    int i;
+
+    if (!ots_active || ots_box_count[write] >= OTS_BOX_MAX)
+    {
+        return;
+    }
+
+    box = &ots_boxes[write][ots_box_count[write]++];
+    for (i = 0; i < 8; i++)
+    {
+        sceVu0FVECTOR w;
+
+        sceVu0ApplyMatrix(w, lwmtx, corners[i]);
+        if (i == 0)
+        {
+            box->x0 = box->x1 = w[0];
+            box->y0 = box->y1 = w[1];
+            box->z0 = box->z1 = w[2];
+            continue;
+        }
+        box->x0 = w[0] < box->x0 ? w[0] : box->x0;
+        box->x1 = w[0] > box->x1 ? w[0] : box->x1;
+        box->y0 = w[1] < box->y0 ? w[1] : box->y0;
+        box->y1 = w[1] > box->y1 ? w[1] : box->y1;
+        box->z0 = w[2] < box->z0 ? w[2] : box->z0;
+        box->z1 = w[2] > box->z1 ? w[2] : box->z1;
+    }
+}
+
+/* The boxes recorded while the last frame was drawn become this frame's. */
+static void OtsSwapBoxes(void)
+{
+    ots_box_read ^= 1;
+    ots_box_count[ots_box_read ^ 1] = 0;
+}
+
+/* The small pieces whose outline covers p, and the top (lowest y: up is
+ * negative) of the tallest of them. */
+static int OtsSmallPiecesAt(const sceVu0FVECTOR p, float* top)
+{
+    const OtsBox* boxes = ots_boxes[ots_box_read];
+    int count = 0;
+    int i;
+
+    *top = 0.0f;
+    for (i = 0; i < ots_box_count[ots_box_read]; i++)
+    {
+        const OtsBox* b = &boxes[i];
+
+        if (p[0] < b->x0 || p[0] > b->x1 || p[2] < b->z0 || p[2] > b->z1)
+        {
+            continue;
+        }
+        if ((b->x1 - b->x0) * (b->z1 - b->z0) > OTS_SMALL_BOX_AREA)
+        {
+            continue;
+        }
+        if (count == 0 || b->y0 < *top)
+        {
+            *top = b->y0;
+        }
+        count++;
+    }
+    return count;
+}
+
+/* A room hit area has no height: it is a low obstacle the camera may pass
+ * over only when the room's own pieces there are all below the camera.
+ * With no piece known there it stays a wall, as before. */
+static int OtsAboveLowPieces(const sceVu0FVECTOR p)
+{
+    float top;
+
+    if (OtsSmallPiecesAt(p, &top) == 0)
+    {
+        return 0;
+    }
+    return p[1] < top - OTS_LOW_PIECE_MARGIN;
+}
+
 /* Classifies a point against the only collision data the game has: the
  * room outlines and the wall, door and furniture areas Miku cannot walk
  * into.  Outside every room, walls and doors are hard; furniture is soft
@@ -453,6 +555,13 @@ static int OtsPointClass(const sceVu0FVECTOR p)
     {
         case 0:
             return OTS_FREE;
+        case 1:
+            /* a table, a chest: see over it when it is all below the camera */
+            return OtsAboveLowPieces(q) ? OTS_FREE : OTS_HARD;
+        case 2:
+            /* a closed door blocks the view; an open or moving one is a thin
+             * panel the camera passes, as Miku walks through the doorway */
+            return door_cover_hit_stts == 1 ? OTS_HARD : OTS_FREE;
         case 3:
             return OTS_SOFT;
         default:
@@ -621,6 +730,8 @@ static void OtsRecordCollision(const sceVu0FVECTOR from, const sceVu0FVECTOR dir
     d->feet_y = plyr_wrk.move_box.pos[1];
     d->limited = 0;
     d->hit_kind = 0;
+    d->hit_boxes = 0;
+    d->boxes = ots_box_count[ots_box_read];
 
     if (wall < requested - 1.0f)
     {
@@ -649,6 +760,13 @@ static void OtsRecordCollision(const sceVu0FVECTOR from, const sceVu0FVECTOR dir
             MikuPan_HitPointDetail(p, &hit);
         }
         d->hit_kind = hit.kind;
+        d->hit_door_state = hit.kind == 2 ? door_cover_hit_stts : 0;
+        {
+            float top = 0.0f;
+
+            d->hit_boxes = OtsSmallPiecesAt(p, &top);
+            d->hit_box_top = d->feet_y - top;
+        }
         d->hit_room = hit.room_id;
         d->hit_area = hit.area;
         d->hit_xz_only = hit.furn_xz_only;
@@ -1296,6 +1414,8 @@ void MikuPan_OverShoulderToggle(void)
 
 void MikuPan_OverShoulderBeginFrame(void)
 {
+    OtsSwapBoxes();
+
     /* CameraMain() can hand the frame to a special camera before reaching
      * us; treat that like any other frame we did not own. */
     if (!ots_ctrl_ran)

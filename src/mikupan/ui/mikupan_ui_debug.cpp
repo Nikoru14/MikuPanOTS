@@ -1063,7 +1063,8 @@ void MikuPan_UiCameraDebugWindow(void)
         igSeparatorText("OTS collision");
         igText("distance %.0f of %.0f  (wall limit %.0f, furniture limit %.0f)",
                c->boom, c->requested, c->wall, c->prop);
-        igText("camera %.0f above feet", c->feet_y - c->camera_y);
+        igText("camera %.0f above feet; %d room pieces known", c->feet_y - c->camera_y,
+               c->boxes);
         if (c->limited == 0)
         {
             igTextColored(ImVec4{0.15f, 1.0f, 0.35f, 1.0f}, "not limited");
@@ -1079,6 +1080,20 @@ void MikuPan_UiCameraDebugWindow(void)
             {
                 igText("room %u, hit area %u (no height data)", c->hit_room,
                        c->hit_area);
+            }
+            if (c->hit_kind == 2)
+            {
+                igText("door state %u (%s)", c->hit_door_state,
+                       c->hit_door_state == 1 ? "closed: blocks" : "open or moving");
+            }
+            if (c->hit_boxes > 0)
+            {
+                igText("%d small room pieces there, tallest top %.0f above feet",
+                       c->hit_boxes, c->hit_box_top);
+            }
+            else if (c->hit_kind == 1)
+            {
+                igText("no small room piece there: kept as a wall");
             }
             if (c->hit_kind == 3 || c->hit_xz_only)
             {
