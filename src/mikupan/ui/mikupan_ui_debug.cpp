@@ -1088,12 +1088,11 @@ void MikuPan_UiCameraDebugWindow(void)
             }
             if (c->hit_kind == 1)
             {
-                igText("%d small room pieces cover it, %d inside this area",
-                       c->hit_covering, c->hit_boxes);
+                igText("%d small room pieces belong to this area", c->hit_boxes);
                 if (c->hit_boxes > 0)
                 {
-                    igText("tallest inside the area: top %.0f above feet",
-                           c->hit_box_top);
+                    igText("its height: top %.0f above feet (camera passes above %.0f)",
+                           c->hit_box_top, c->hit_box_top + 60.0f);
                 }
                 else
                 {
