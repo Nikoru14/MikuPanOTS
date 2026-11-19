@@ -256,6 +256,23 @@ static VideoDecoder g_vd = {0};
 static ReadBuffer g_rb = {0};
 static AudioState g_audio_state = {0};
 
+/* Pauses or resumes the movie's audio device (the PS5 build pauses it while
+ * the console's home screen has the controller). */
+extern "C" void MikuPan_MovieSetAudioPaused(int paused)
+{
+    if (g_audio_state.device != 0)
+    {
+        if (paused)
+        {
+            SDL_PauseAudioDevice(g_audio_state.device);
+        }
+        else
+        {
+            SDL_ResumeAudioDevice(g_audio_state.device);
+        }
+    }
+}
+
 typedef struct {
     int active;
     int draining_audio;

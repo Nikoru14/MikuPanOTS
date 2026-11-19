@@ -207,6 +207,72 @@ access to that folder.
 magnification for UI sprites. It defaults to on; use **Save Configuration**
 to retain changes. Effects and screen captures keep their original filtering.
 
+## PlayStation 5 (experimental)
+MikuPan cross-builds for a jailbroken PS5 as a native title folder that
+[ShadowMount+](https://github.com/drakmor/ShadowMountPlus) can mount. It
+renders with SDL_GPU's Vulkan backend on
+[PS5_Vulkan](https://github.com/mihawk-99/PS5_Vulkan)'s RADV, Mesa's AMD
+Vulkan driver ported to the console, which is linked into the title. SDL3 gets
+the console's own video, audio and controller drivers from `ps5/sdl`. This is
+early work.
+
+What you need, on Linux or WSL2:
+
+- `cmake`, `ninja-build`, `meson`, `git`, `curl`, `unzip`, `python3`, and
+  [LLVM 22](https://github.com/llvm/llvm-project/releases) (RADV built with an
+  older Clang does not link into a title).
+- PS5_Vulkan with its RADV release archive built, by its own instructions:
+  it fetches its payload SDK fork and builds RADV from
+  [PS5_Mesa](https://github.com/mihawk-99/PS5_Mesa). Then build its
+  converter and `libc.prx`:
+
+  ```sh
+  bash PS5_Vulkan/tools/rebuild-libc.sh
+  ```
+
+  That gives `.deps/native/radv-release/lib/libvulkan_radeon.ps5.a`,
+  `build/runtime-shim/ps5-native-tool` and `runtime/libc.prx` inside
+  PS5_Vulkan. Nothing from your console is needed.
+- Compiled shaders: copy `resources/shaders/spirv`, `dxil` and `msl` from any
+  MikuPan release zip into this repository's `resources/shaders/`.
+
+Then configure and build with PS5_Vulkan's SDK and LLVM 22:
+
+```sh
+export LLVM_CONFIG=<LLVM 22>/bin/llvm-config
+cmake -B build-ps5 -G Ninja \
+      -DCMAKE_TOOLCHAIN_FILE=<PS5_Vulkan>/.deps/native/ps5-payload-sdk/toolchain/prospero.cmake \
+      -DMIKUPAN_PS5_VULKAN_DIR=<PS5_Vulkan> \
+      -DCMAKE_BUILD_TYPE=Debug -DMIKUPAN_COMPILE_SHADERS=OFF
+cmake --build build-ps5 --target MikuPan
+```
+
+The title folder is written to `build-ps5/app/PPSA39390`. Copy it to
+`/data/homebrew/` (or `homebrew/` on a USB drive) for ShadowMount+ to mount,
+and put `IMG_HD.BIN` and `IMG_BD.BIN` from your disc in `/data/MikuPan/`, like
+other homebrew keeps its files. For the FMV cutscenes, also copy the disc's
+movie folders there as they are (`MOVIE` and `MOVIE2` on the US and Japanese
+discs, `MOVIE3` and `MOVIE4` on the European one), so that for example
+`/data/MikuPan/MOVIE/SCN0010.PSS` exists. Names are matched ignoring case.
+
+Settings, the baked `IMG_TEX.BIN`, saves and `mikupan.log` also go to
+`/data/MikuPan/`. If the title cannot write there, they go to its own
+`/download0/MikuPan/` instead, and the game files can also be placed inside
+the title folder itself (mounted read-only at `/app0`). The title reports its
+progress as PS5 notifications, including which folder it uses.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `MIKUPAN_PS5_TITLE_ID` | `PPSA39390` | `PPSA` plus five digits; must be unique on the console |
+| `MIKUPAN_PS5_CONCEPT_ID` | `39390` | Five digits |
+| `MIKUPAN_PS5_CONTENT_SUFFIX` | `MIKUPANPROSPERO1` | 16 characters `A-Z` or `0-9` |
+| `MIKUPAN_PS5_TITLE_NAME` | `MikuPan PS5` | Name on the home screen |
+| `MIKUPAN_PS5_BACKGROUND` | (none) | A 16:9 picture (PNG or JPEG) for the home screen and launch screen; converted to `sce_sys/pic0.dds` and `pic1.dds` (3840x2160 BC7). Needs Python with numpy and Pillow. Use art you may redistribute if you share the title folder |
+| `MIKUPAN_PS5_LAUNCH_BACKGROUND` | the background | A different picture for the launch screen |
+| `MIKUPAN_PS5_BUILD_LABEL` | `MikuPanPS5-dev` | Build name on the title screen, in the start-up notification and the log |
+
+See `ps5/NOTICE.md` for where the PS5 support files come from.
+
 # PS2 save transfer
 
 Open **Settings → PS2 save transfer…** in the overlay to transfer gameplay saves.

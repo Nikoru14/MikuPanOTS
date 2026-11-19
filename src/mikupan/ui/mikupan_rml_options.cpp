@@ -1199,6 +1199,8 @@ Page DisplayPage(void)
     Page page{"display", "Display", {}};
     std::vector<Row>& rows = page.rows;
 
+#ifndef __PROSPERO__
+    /* (the PS5 has one full screen and no windows) */
     {
         Row mode = Choice(
             "Display Mode", Fixed("Windowed or borderless fullscreen."),
@@ -1219,6 +1221,7 @@ Page DisplayPage(void)
             [] { return MikuPan_GetSelectedWindowSizeOption(); },
             [](int index) { (void) MikuPan_SelectWindowSizeOption(index); }),
         IsWindowed));
+#endif
     rows.push_back(Toggle(
         "VSync", Fixed("Synchronise presentation to the display refresh."),
         [] { return MikuPan_IsVsync() != 0; },
@@ -1247,6 +1250,8 @@ Page DisplayPage(void)
         Fixed("Open a scene preview with all image controls in one place."),
         "Adjust", [] { OpenPanel(PANEL_CALIBRATION); }));
 
+#ifndef __PROSPERO__
+    /* (the PS5's VideoOut swapchain offers 8-bit sRGB only: no HDR) */
     rows.push_back(Heading("HDR"));
     rows.push_back(Toggle(
         "HDR Output",
@@ -1266,6 +1271,7 @@ Page DisplayPage(void)
                [](float nits) { MikuPan_SetHdrPeakLuminance(nits); },
                Format("%.0f nits")),
         HdrOn));
+#endif
     return page;
 }
 
@@ -1284,6 +1290,8 @@ Page GraphicsPage(void)
         [](int index) { return MikuPan_GetRenderResolutionOptionLabel(index); },
         [] { return MikuPan_GetSelectedRenderResolutionOption(); },
         [](int index) { (void) MikuPan_SelectRenderResolutionOption(index); }));
+#ifndef __PROSPERO__
+    /* (Vulkan is the PS5's only backend) */
     {
         Row gpu = ListChoice(
             "GPU Backend",
@@ -1307,6 +1315,7 @@ Page GraphicsPage(void)
         };
         rows.push_back(std::move(gpu));
     }
+#endif
     rows.push_back(When(
         ListChoice(
             "MSAA",
@@ -1502,10 +1511,12 @@ Page GamePage(void)
         "Mirror Stone Indicator", Fixed("Show a Mirror Stone icon next to the filament."),
         [] { return MikuPan_MirrorStoneHudEnabled() != 0; },
         [](bool on) { MikuPan_SetMirrorStoneHudEnabled(on ? 1 : 0); }));
+#ifndef __PROSPERO__
     rows.push_back(Toggle(
         "Auto-hide Cursor", Fixed("Hide the mouse cursor after 5 seconds of inactivity."),
         [] { return mikupan_configuration.cursor_auto_hide_enabled != 0; },
         [](bool on) { mikupan_configuration.cursor_auto_hide_enabled = on ? 1 : 0; }));
+#endif
     rows.push_back(ListChoice(
         "Font", Fixed("Choose the options-menu font."),
         [] { return MikuPan_GetFontOptionCount(); },
@@ -1531,6 +1542,8 @@ Page GamePage(void)
         [] { return mikupan_configuration.album_photo_png_export_enabled != 0; },
         [](bool on) { mikupan_configuration.album_photo_png_export_enabled = on ? 1 : 0; }));
 
+#ifndef __PROSPERO__
+    /* (on the PS5 the game files are found in /data/MikuPan) */
     rows.push_back(Heading("Files"));
     {
         Row folder = Action(
@@ -1558,6 +1571,7 @@ Page GamePage(void)
         };
         rows.push_back(std::move(folder));
     }
+#endif
     return page;
 }
 
@@ -1579,7 +1593,11 @@ Page ControlsPage(void)
 
     rows.push_back(Heading("Movement Style"));
     rows.push_back(Choice(
+#ifdef __PROSPERO__
+        "D-Pad",
+#else
         "D-Pad / Arrow Keys",
+#endif
         Fixed("Objective walks Miku where you push, as the camera sees it. Subjective turns her and walks forward."),
         {"Objective", "Subjective"}, [] { return CurrentDpadMovementUsesSubjective(); },
         [](int subjective) {
@@ -1587,7 +1605,11 @@ Page ControlsPage(void)
             MikuPan_SetCustomActionProfileDpadSubjectiveMove(subjective);
         }));
     rows.push_back(Choice(
+#ifdef __PROSPERO__
+        "Left Stick",
+#else
         "Left Stick / WASD",
+#endif
         Fixed("Objective walks Miku where you push, as the camera sees it. Subjective turns her and walks forward."),
         {"Objective", "Subjective"}, [] { return CurrentStickMovementUsesSubjective(); },
         [](int subjective) {
@@ -1801,6 +1823,7 @@ Page CalibrationPanel(void)
                0.0f, 2.0f, 0.05f, [] { return MikuPan_GetShadowDepth(); },
                [](float value) { MikuPan_SetShadowDepth(value); }, Format("%.2f")),
         1.0f));
+#ifndef __PROSPERO__
     rows.push_back(Toggle(
         "HDR Output",
         Fixed("Use extended-linear HDR presentation when the display supports it."),
@@ -1815,6 +1838,7 @@ Page CalibrationPanel(void)
                100.0f, 4000.0f, 50.0f, [] { return MikuPan_GetHdrPeakLuminance(); },
                [](float nits) { MikuPan_SetHdrPeakLuminance(nits); }, Format("%.0f")),
         HdrOn));
+#endif
 
     rows.push_back(Heading(""));
     rows.push_back(Action(
@@ -1953,7 +1977,9 @@ void BuildPages(void)
     g_opt.pages.push_back(AudioPage());
     g_opt.pages.push_back(GamePage());
     g_opt.pages.push_back(ControlsPage());
+#ifndef __PROSPERO__
     g_opt.pages.push_back(KeyboardPage());
+#endif
     g_opt.pages.push_back(ControllerPage());
 
     g_opt.panels.clear();

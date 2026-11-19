@@ -4645,7 +4645,9 @@ void SubGameOver(/* 0x11b60(sp) */ u_char alp, /* f20 58 */ float rate)
     
     for (i = 0; i < vnumw*vnumh; i++)
     {
-        if (((i % vnumw) != (pnumw/2) % i)) {} // debug code ??
+        /* The decompiled original compared (i % vnumw) with
+         * (pnumw/2) % i here and did nothing with the answer; at i == 0
+         * that divides by zero, which crashed the game over screen. */
 
         fx = lll[i]; // Line 5171
         fy = SgSinf(mm1[i] - r) * fw * mm2[i]; // Line 5172

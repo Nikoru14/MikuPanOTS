@@ -8,6 +8,12 @@
 #include "spdlog/sinks/android_sink.h"
 #endif
 
+#ifdef __PROSPERO__
+#include "mikupan/mikupan_ps5.h"
+#include "spdlog/sinks/basic_file_sink.h"
+#include <string>
+#endif
+
 #include <array>
 #include <algorithm>
 #include <cstdarg>
@@ -78,6 +84,23 @@ std::shared_ptr<spdlog::logger> CreateLogger()
 #ifdef __ANDROID__
     sinks.emplace_back(std::make_shared<spdlog::sinks::android_sink_mt>(
         kLoggerName));
+#elif defined(__PROSPERO__)
+    /* PS5: nothing reads stdout, so log to a file next to the settings,
+     * flushed per line so a crash keeps it. The logger can be created again
+     * after shutdown (the final notification logs too), so only the first
+     * creation in a launch starts a fresh file; later ones append. */
+    try
+    {
+        static bool started_this_launch = false;
+        const std::string path =
+            std::string(MikuPan_GetPs5UserDirectory()) + "mikupan.log";
+        sinks.emplace_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>(
+            path, !started_this_launch));
+        started_this_launch = true;
+    }
+    catch (const spdlog::spdlog_ex&)
+    {
+    }
 #else
     sinks.emplace_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 #endif
@@ -86,7 +109,14 @@ std::shared_ptr<spdlog::logger> CreateLogger()
         kLoggerName, sinks.begin(), sinks.end());
     logger->set_pattern(kPattern);
     logger->set_level(spdlog::level::info);
+#ifdef __PROSPERO__
+    /* Written out on warnings and once a second (below), not on every line:
+     * a room load logs dozens of lines, each a write to the console's disk
+     * on the game's thread. A crash still has crash.log. */
     logger->flush_on(spdlog::level::warn);
+#else
+    logger->flush_on(spdlog::level::warn);
+#endif
     return logger;
 }
 
@@ -164,6 +194,14 @@ std::shared_ptr<spdlog::logger> GetLogger()
     {
         g_logger = CreateLogger();
         spdlog::set_default_logger(g_logger);
+#ifdef __PROSPERO__
+        static bool flushing = false;
+        if (!flushing)
+        {
+            flushing = true;
+            spdlog::flush_every(std::chrono::seconds(1));
+        }
+#endif
         spdlog::cfg::load_env_levels();
         spdlog::apply_logger_env_levels(g_logger);
     }

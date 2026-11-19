@@ -23,6 +23,9 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __PROSPERO__
+#include "mikupan/mikupan_ps5.h"
+#endif
 
 static void MikuPan_ApplyWindowMode(int mode);
 static int MikuPan_RenderSceneToPhotoFramebuffer(void);
@@ -321,6 +324,15 @@ SDL_AppResult MikuPan_Init()
     SDL_SetAppMetadata("MikuPan", MIKUPAN_GIT_DESCRIBE, "MikuPan");
 
     info_log("Initializing SDL");
+
+#ifdef __PROSPERO__
+    /* The console's own drivers (ps5/sdl): the screen through VK_KHR_display
+     * on RADV, AudioOut, and the controllers through scePad. */
+    SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "ps5");
+    SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "ps5");
+    SDL_SetHint(SDL_HINT_GPU_DRIVER, "vulkan");
+    MikuPan_Ps5ForwardSdlLog();
+#endif
 
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC))
     {

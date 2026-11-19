@@ -40,6 +40,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MikuPan)
 
+# PlayStation 5 homebrew: dependency options for the ps5-payload-sdk toolchain.
+include(ps5)
+
 include(sdl3)
 include(rmlui)
 include(cimgui)
@@ -512,12 +515,18 @@ target_link_libraries(MikuPan PRIVATE
         inipp::inipp
 )
 
-if(NOT MSVC)
+# The PS5 has no separate libm: the math functions come from the console's
+# libSceLibcInternal, which the toolchain links into every program.
+if(NOT MSVC AND NOT PS5)
     target_link_libraries(MikuPan PRIVATE m)
 endif()
 
 if(ANDROID)
     target_link_libraries(MikuPan PRIVATE log)
+endif()
+
+if(PS5)
+    mikupan_ps5_title(MikuPan)
 endif()
 
 if(NOT ANDROID)

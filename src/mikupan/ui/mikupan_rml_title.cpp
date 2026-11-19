@@ -212,6 +212,9 @@ static void MikuPan_RmlTitleUpdateBuildInfo(void)
     char buffer[512];
     std::snprintf(buffer,
                   sizeof(buffer),
+#ifdef MIKUPAN_PS5_BUILD_LABEL
+                  MIKUPAN_PS5_BUILD_LABEL "<br/>"
+#endif
                   "MikuPan Build: %s<br/>Version: %s (%s)<br/>https://github.com/Mikompilation/MikuPan",
                   MIKUPAN_BUILD_DATE,
                   MIKUPAN_GIT_DESCRIBE,

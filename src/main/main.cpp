@@ -32,6 +32,10 @@
 #include <mikupan/mikupan_memory.h>
 #include <sce/libpad.h>
 #include <mikupan/mikupan_framelimiter.h>
+#include "mikupan/mikupan_ps5.h"
+#ifdef __PROSPERO__
+#include "mikupan/debug/mikupan_logging_c.h"
+#endif
 
 static int mikupan_game_initialized = 0;
 static int mikupan_missing_data_prompted = 0;
@@ -60,6 +64,11 @@ static int MikuPan_TryInitializeGame(void)
 
         if (!mikupan_missing_data_prompted)
         {
+#ifdef __PROSPERO__
+            MikuPan_Ps5Notify("MikuPan: %s not found. Put IMG_HD.BIN and "
+                              "IMG_BD.BIN in /data/MikuPan/",
+                              mikupan_missing_data_file);
+#endif
             MikuPan_RequestDataFolderSelection(mikupan_missing_data_file);
             mikupan_missing_data_prompted = 1;
         }
@@ -83,14 +92,25 @@ static int MikuPan_TryInitializeGame(void)
     InitSystem();
     InitGameFirst();
     mikupan_game_initialized = 1;
+#ifdef __PROSPERO__
+    MikuPan_Ps5Notify("MikuPan: game data loaded");
+#endif
     return 1;
 }
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
+#ifdef __PROSPERO__
+    MikuPan_Ps5Notify("%s starting. Log: %smikupan.log", MIKUPAN_PS5_BUILD_LABEL,
+                      MikuPan_GetPs5UserDirectory());
+#endif
+
     SDL_AppResult result = MikuPan_Init();
     if (result != SDL_APP_CONTINUE)
     {
+#ifdef __PROSPERO__
+        MikuPan_Ps5Notify("MikuPan could not start: %s", SDL_GetError());
+#endif
         return result;
     }
 
@@ -99,6 +119,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     MikuPan_TryInitializeGame();
 
     MikuPan_FrameLimiter_Init(&frame_limiter, 60.0f);
+#ifdef __PROSPERO__
+    MikuPan_Ps5ProfilerStart();
+#endif
 
     return result;
 }
@@ -131,8 +154,47 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
     return SDL_APP_CONTINUE;
 }
 
+#ifdef __PROSPERO__
+static Uint64 mikupan_ps5_last_frame_ns = 0;
+#endif
+
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
+#ifdef __PROSPERO__
+    /* Like a console game at the home screen: no updates, no frames, no
+     * sound until the player is back. */
+    {
+        static bool was_paused = false;
+        const bool paused = mikupan_game_initialized && MikuPan_Ps5ShouldPause();
+        if (paused)
+        {
+            was_paused = true;
+            return SDL_APP_CONTINUE;
+        }
+        if (was_paused)
+        {
+            was_paused = false;
+            MikuPan_FrameLimiter_Reset(&frame_limiter);
+            mikupan_ps5_last_frame_ns = 0; /* the pause is not a slow frame */
+        }
+    }
+    /* A frame that took much longer than 1/60 s (the limiter's wait
+     * included): logged, so the files loaded around it show what it was. */
+    {
+        Uint64 &last_frame = mikupan_ps5_last_frame_ns;
+        const Uint64 now = SDL_GetTicksNS();
+        if (last_frame != 0 && mikupan_game_initialized)
+        {
+            const double ms = (double)(now - last_frame) / 1e6;
+            if (ms > 25.0)
+            {
+                info_log("PS5: slow frame %.1f ms", ms);
+            }
+            MikuPan_Ps5ProfilerFrame(ms);
+        }
+        last_frame = now;
+    }
+#endif
     MikuPan_ServiceMissingDataFolderDialog();
 
     MikuPan_Clear();
@@ -198,6 +260,12 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result)
 {
+#ifdef __PROSPERO__
+    MikuPan_Ps5Notify("MikuPan closed (%s). Last error: %s",
+                      result == SDL_APP_SUCCESS ? "normally" : "after a failure",
+                      SDL_GetError());
+#endif
+
     if (mikupan_game_initialized)
     {
         IopShutDown();

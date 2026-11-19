@@ -14,6 +14,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstring>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -112,7 +113,29 @@ std::unique_ptr<Pack> OpenPack(std::string* why)
 {
     const std::string path = PackPath();
     std::error_code ec;
+#ifdef __PROSPERO__
+    /* measured by opening it, as the console's other data file checks are
+     * (mikupan_file.cpp): a failed size would bake the pack at every launch */
+    uint64_t file_size = 0;
+    if (!path.empty())
+    {
+        if (FILE* file = std::fopen(path.c_str(), "rb"))
+        {
+            if (std::fseek(file, 0, SEEK_END) == 0)
+            {
+                const long end = std::ftell(file);
+                file_size = end > 0 ? (uint64_t)end : 0;
+            }
+            std::fclose(file);
+        }
+        else
+        {
+            ec = std::make_error_code(std::errc::no_such_file_or_directory);
+        }
+    }
+#else
     const uint64_t file_size = path.empty() ? 0 : fs::file_size(path, ec);
+#endif
 
     if (path.empty() || ec || file_size < sizeof(PackHeader))
     {

@@ -219,6 +219,7 @@ else()
                 ${BASH_EXECUTABLE} <SOURCE_DIR>/configure
                 --prefix=${FFMPEG_ROOT}
                 --cc=${CMAKE_C_COMPILER}
+                ${MIKUPAN_FFMPEG_CROSS_ARGS}
                 --disable-shared
                 --enable-static
                 --disable-programs
@@ -250,7 +251,7 @@ else()
 
     find_package(Threads REQUIRED)
     set(FFMPEG_SYSTEM_LIBS Threads::Threads)
-    if(NOT MSVC)
+    if(NOT MSVC AND NOT PS5)
         list(APPEND FFMPEG_SYSTEM_LIBS m)
     endif()
     if(CMAKE_DL_LIBS)

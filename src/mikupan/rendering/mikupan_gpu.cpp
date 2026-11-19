@@ -1,4 +1,7 @@
 #include "mikupan_gpu.h"
+#ifdef __PROSPERO__
+#include "mikupan/mikupan_ps5.h"
+#endif
 
 #include "mikupan/debug/mikupan_logging_c.h"
 #include "mikupan/mikupan_utils.h"
@@ -789,6 +792,9 @@ int MikuPan_GPUInit(SDL_Window* window, int vsync, int hdr_enabled,
     if (g_device == NULL)
     {
         info_log("Error creating SDL_GPU device: %s", SDL_GetError());
+#ifdef __PROSPERO__
+        MikuPan_Ps5VulkanReport();
+#endif
         return 0;
     }
 

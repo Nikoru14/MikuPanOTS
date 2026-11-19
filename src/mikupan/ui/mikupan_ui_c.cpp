@@ -205,6 +205,14 @@ void MikuPan_RequestQuit(void)
     SDL_PushEvent(&quit_event);
 }
 
+/* The overlay's controller shortcut: L3 with Start, or on the PS5 L3 with
+ * R3, since a jailbroken console opens its own debug menu on L3 + Options. */
+#ifdef __PROSPERO__
+#define MIKUPAN_UI_MENU_SHORTCUT_BUTTON SDL_GAMEPAD_BUTTON_RIGHT_STICK
+#else
+#define MIKUPAN_UI_MENU_SHORTCUT_BUTTON SDL_GAMEPAD_BUTTON_START
+#endif
+
 static int MikuPan_UiGamepadMenuShortcutPressed(void)
 {
     static int was_down = 0;
@@ -214,7 +222,7 @@ static int MikuPan_UiGamepadMenuShortcutPressed(void)
     if (gamepad != NULL)
     {
         down = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_LEFT_STICK)
-            && SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_START);
+            && SDL_GetGamepadButton(gamepad, MIKUPAN_UI_MENU_SHORTCUT_BUTTON);
     }
     else
     {
@@ -233,7 +241,7 @@ static int MikuPan_UiGamepadMenuShortcutPressed(void)
                                SDL_GAMEPAD_BUTTON_LEFT_STICK)
                         && SDL_GetGamepadButton(
                                opened_gamepad,
-                               SDL_GAMEPAD_BUTTON_START);
+                               MIKUPAN_UI_MENU_SHORTCUT_BUTTON);
                 }
             }
             SDL_free(gamepad_ids);

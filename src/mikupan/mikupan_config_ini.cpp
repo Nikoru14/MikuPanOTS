@@ -2,6 +2,7 @@
 
 #include "debug/mikupan_logging.h"
 #include "mikupan/io/mikupan_file.h"
+#include "mikupan/mikupan_ps5.h"
 
 #include <SDL3/SDL_filesystem.h>
 #ifdef __ANDROID__
@@ -25,6 +26,10 @@ using Ini = inipp::Ini<char>;
 
 bool PathExistsNoThrow(const std::filesystem::path& path, const char *context)
 {
+#ifdef __PROSPERO__
+    (void)context;
+    return MikuPan_Ps5PathExists(path.string().c_str());
+#endif
     std::error_code error;
     const bool exists = std::filesystem::exists(path, error);
     if (error)
@@ -42,6 +47,14 @@ bool PathExistsNoThrow(const std::filesystem::path& path, const char *context)
 bool CreateDirectoriesNoThrow(const std::filesystem::path& path,
                               const char *context)
 {
+#ifdef __PROSPERO__
+    /* an existing folder will do (found by opening it, as on the console the
+     * files' existence is checked) */
+    if (MikuPan_Ps5PathExists(path.string().c_str()))
+    {
+        return true;
+    }
+#endif
     std::error_code error;
     std::filesystem::create_directories(path, error);
     if (error)
@@ -58,6 +71,13 @@ bool CreateDirectoriesNoThrow(const std::filesystem::path& path,
 
 std::filesystem::path GetDefaultConfigurationPath()
 {
+#ifdef __PROSPERO__
+    /* PS5 title: /app0 is read-only. The configuration, the baked
+     * IMG_TEX.BIN and the saves live in /data/MikuPan when the title can
+     * write there, otherwise in its own /download0/MikuPan. */
+    return std::filesystem::path(MikuPan_GetPs5UserDirectory()) / "mikupan.ini";
+#endif
+
     char *base = SDL_GetPrefPath("Mikompilation", "MikuPan");
     if (base != nullptr && base[0] != '\0')
     {
@@ -679,11 +699,21 @@ extern "C" void MikuPan_LoadConfiguration(const char *filename)
                  default_path.generic_string().c_str());
         if (!TryLoadConfigurationFile(default_path))
         {
+#ifndef __PROSPERO__
+            /* (a title has no working directory to look in) */
             TryLoadConfigurationFile("mikupan.ini");
+#endif
         }
     }
 
+#ifdef __PROSPERO__
+    /* Left empty, the data folder is chosen at each launch: /data/MikuPan
+     * when the game files are there, else the title's own folder
+     * (MikuPan_GetDataRoot in mikupan_file.cpp). */
+    if (false)
+#else
     if (mikupan_configuration.data_folder[0] == '\0')
+#endif
     {
 #ifdef __ANDROID__
         const char *base = SDL_GetAndroidExternalStoragePath();
