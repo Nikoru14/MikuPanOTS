@@ -1086,14 +1086,19 @@ void MikuPan_UiCameraDebugWindow(void)
                 igText("door state %u (%s)", c->hit_door_state,
                        c->hit_door_state == 1 ? "closed: blocks" : "open or moving");
             }
-            if (c->hit_boxes > 0)
+            if (c->hit_kind == 1)
             {
-                igText("%d small room pieces there, tallest top %.0f above feet",
-                       c->hit_boxes, c->hit_box_top);
-            }
-            else if (c->hit_kind == 1)
-            {
-                igText("no small room piece there: kept as a wall");
+                igText("%d small room pieces cover it, %d inside this area",
+                       c->hit_covering, c->hit_boxes);
+                if (c->hit_boxes > 0)
+                {
+                    igText("tallest inside the area: top %.0f above feet",
+                           c->hit_box_top);
+                }
+                else
+                {
+                    igText("none inside the area: kept as a wall");
+                }
             }
             if (c->hit_kind == 3 || c->hit_xz_only)
             {

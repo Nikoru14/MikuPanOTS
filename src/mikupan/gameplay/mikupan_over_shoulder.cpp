@@ -484,24 +484,41 @@ static void OtsSwapBoxes(void)
     ots_box_count[ots_box_read ^ 1] = 0;
 }
 
-/* The small pieces whose outline covers p, and the top (lowest y: up is
- * negative) of the tallest of them. */
-static int OtsSmallPiecesAt(const sceVu0FVECTOR p, float* top)
+/* The small pieces whose box covers p and that belong to room hit area
+ * `area` of room `room_id` (the centre of the box lies inside it: a
+ * neighbouring cabinet or wall whose box only overlaps the spot does not),
+ * and the top (lowest y: up is negative) of the tallest of them. `covering`
+ * receives how many small pieces cover p at all. */
+static int OtsSmallPiecesAt(const sceVu0FVECTOR p, u_char room_id, u_char area,
+                            float* top, int* covering)
 {
     const OtsBox* boxes = ots_boxes[ots_box_read];
+    u_char room_no = GetDataRoom(MAP_HIT_CHECK, room_id);
     int count = 0;
     int i;
 
     *top = 0.0f;
+    *covering = 0;
     for (i = 0; i < ots_box_count[ots_box_read]; i++)
     {
         const OtsBox* b = &boxes[i];
+        float cx;
+        float cz;
 
         if (p[0] < b->x0 || p[0] > b->x1 || p[2] < b->z0 || p[2] > b->z1)
         {
             continue;
         }
         if ((b->x1 - b->x0) * (b->z1 - b->z0) > OTS_SMALL_BOX_AREA)
+        {
+            continue;
+        }
+        (*covering)++;
+
+        cx = (b->x0 + b->x1) * 0.5f;
+        cz = (b->z0 + b->z1) * 0.5f;
+        if (cx < 0.0f || cz < 0.0f
+            || PosInAreaJudge1(MAP_HIT_CHECK, room_no, area, (u_short)cz, (u_short)cx) == 0)
         {
             continue;
         }
@@ -515,13 +532,14 @@ static int OtsSmallPiecesAt(const sceVu0FVECTOR p, float* top)
 }
 
 /* A room hit area has no height: it is a low obstacle the camera may pass
- * over only when the room's own pieces there are all below the camera.
- * With no piece known there it stays a wall, as before. */
-static int OtsAboveLowPieces(const sceVu0FVECTOR p)
+ * over only when the room's own pieces in it are all below the camera.
+ * With no piece known in it, it stays a wall, as before. */
+static int OtsAboveLowPieces(const sceVu0FVECTOR p, u_char room_id, u_char area)
 {
     float top;
+    int covering;
 
-    if (OtsSmallPiecesAt(p, &top) == 0)
+    if (OtsSmallPiecesAt(p, room_id, area, &top, &covering) == 0)
     {
         return 0;
     }
@@ -556,8 +574,17 @@ static int OtsPointClass(const sceVu0FVECTOR p)
         case 0:
             return OTS_FREE;
         case 1:
+        {
             /* a table, a chest: see over it when it is all below the camera */
-            return OtsAboveLowPieces(q) ? OTS_FREE : OTS_HARD;
+            MIKUPAN_HIT_DETAIL hit;
+
+            MikuPan_HitPointDetail(q, &hit);
+            if (hit.kind != 1)
+            {
+                return OTS_HARD;
+            }
+            return OtsAboveLowPieces(q, hit.room_id, hit.area) ? OTS_FREE : OTS_HARD;
+        }
         case 2:
             /* a closed door blocks the view; an open or moving one is a thin
              * panel the camera passes, as Miku walks through the doorway */
@@ -731,6 +758,7 @@ static void OtsRecordCollision(const sceVu0FVECTOR from, const sceVu0FVECTOR dir
     d->limited = 0;
     d->hit_kind = 0;
     d->hit_boxes = 0;
+    d->hit_covering = 0;
     d->boxes = ots_box_count[ots_box_read];
 
     if (wall < requested - 1.0f)
@@ -761,10 +789,12 @@ static void OtsRecordCollision(const sceVu0FVECTOR from, const sceVu0FVECTOR dir
         }
         d->hit_kind = hit.kind;
         d->hit_door_state = hit.kind == 2 ? door_cover_hit_stts : 0;
+        if (hit.kind == 1)
         {
             float top = 0.0f;
 
-            d->hit_boxes = OtsSmallPiecesAt(p, &top);
+            d->hit_boxes = OtsSmallPiecesAt(p, hit.room_id, hit.area, &top,
+                                            &d->hit_covering);
             d->hit_box_top = d->feet_y - top;
         }
         d->hit_room = hit.room_id;
