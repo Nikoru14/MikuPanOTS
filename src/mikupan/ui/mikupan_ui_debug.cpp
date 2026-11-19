@@ -1053,6 +1053,42 @@ void MikuPan_UiCameraDebugWindow(void)
         }
     }
 
+    /* Over the shoulder: what limited the camera's distance this frame. */
+    if (MikuPan_OverShoulderActive())
+    {
+        const MikuPan_OtsCollisionDebug* c = MikuPan_OverShoulderCollisionDebug();
+        static const char* const kinds[] = {"clear", "room hit area", "door",
+                                            "furniture", "outside the room"};
+
+        igSeparatorText("OTS collision");
+        igText("distance %.0f of %.0f  (wall limit %.0f, furniture limit %.0f)",
+               c->boom, c->requested, c->wall, c->prop);
+        igText("camera %.0f above feet", c->feet_y - c->camera_y);
+        if (c->limited == 0)
+        {
+            igTextColored(ImVec4{0.15f, 1.0f, 0.35f, 1.0f}, "not limited");
+        }
+        else
+        {
+            igTextColored(ImVec4{1.0f, 0.78f, 0.10f, 1.0f},
+                          "limited by %s: %s, %.0f above feet",
+                          c->limited == 1 ? "wall" : "furniture",
+                          kinds[c->hit_kind < 5 ? c->hit_kind : 0],
+                          c->feet_y - c->hit_y);
+            if (c->hit_kind == 1)
+            {
+                igText("room %u, hit area %u (no height data)", c->hit_room,
+                       c->hit_area);
+            }
+            if (c->hit_kind == 3 || c->hit_xz_only)
+            {
+                igText("furniture id %u: y from %d to %d%s", c->hit_furn_id,
+                       -c->hit_furn_top, -c->hit_furn_btm,
+                       c->hit_xz_only ? " (outline only)" : "");
+            }
+        }
+    }
+
     igEnd();
 }
 

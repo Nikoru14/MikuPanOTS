@@ -16,6 +16,7 @@
 #include "sce/libvu0.h"
 
 #include <math.h>
+#include <string.h>
 
 #define PI 3.1415928f
 #define DEG2RAD(x) ((float)(x) * PI / 180.0f)
@@ -603,6 +604,65 @@ static float OtsFreeBoom(const sceVu0FVECTOR from, const sceVu0FVECTOR dir,
     return boom;
 }
 
+/* What limited the boom this frame (debug overlay readout). */
+static MikuPan_OtsCollisionDebug ots_collision_debug;
+
+static void OtsRecordCollision(const sceVu0FVECTOR from, const sceVu0FVECTOR dir,
+                               float wall, float prop)
+{
+    MikuPan_OtsCollisionDebug* d = &ots_collision_debug;
+    float requested = mikupan_over_shoulder_distance;
+    float at = -1.0f;
+
+    d->valid = 1;
+    d->requested = requested;
+    d->wall = wall;
+    d->prop = prop;
+    d->feet_y = plyr_wrk.move_box.pos[1];
+    d->limited = 0;
+    d->hit_kind = 0;
+
+    if (wall < requested - 1.0f)
+    {
+        d->limited = 1;
+        at = wall + OTS_WALL_MARGIN + OTS_PROBE_STEP * 0.5f;
+    }
+    if (prop < wall - 1.0f)
+    {
+        d->limited = 2;
+        at = prop + OTS_WALL_MARGIN * 0.5f + OTS_PROBE_STEP * 0.5f;
+    }
+    if (at >= 0.0f)
+    {
+        sceVu0FVECTOR p;
+        MIKUPAN_HIT_DETAIL hit;
+
+        OtsAlong(p, from, dir, at);
+        d->hit_y = p[1];
+        if (GetPointRoomNo((u_short)p[0], (u_short)p[2]) == 0xff)
+        {
+            memset(&hit, 0, sizeof(hit));
+            hit.kind = 4; /* outside every room */
+        }
+        else
+        {
+            MikuPan_HitPointDetail(p, &hit);
+        }
+        d->hit_kind = hit.kind;
+        d->hit_room = hit.room_id;
+        d->hit_area = hit.area;
+        d->hit_xz_only = hit.furn_xz_only;
+        d->hit_furn_id = hit.furn_id;
+        d->hit_furn_top = hit.furn_top;
+        d->hit_furn_btm = hit.furn_btm;
+    }
+}
+
+const MikuPan_OtsCollisionDebug* MikuPan_OverShoulderCollisionDebug(void)
+{
+    return &ots_collision_debug;
+}
+
 /* Fraction of the shoulder offset that stays clear of walls. */
 static float OtsFreeShoulder(const sceVu0FVECTOR from, const sceVu0FVECTOR offset)
 {
@@ -1109,6 +1169,7 @@ static void OtsBuildCamera(void)
     {
         allowed = OtsFreeBoom(start, back, allowed, &prop_allowed);
     }
+    OtsRecordCollision(start, back, allowed, prop_allowed);
 
     if (ots_boom > allowed)
     {
@@ -1137,6 +1198,8 @@ static void OtsBuildCamera(void)
     camera.p[1] = start[1] + back[1] * ots_boom;
     camera.p[2] = start[2] + back[2] * ots_boom;
     camera.p[3] = 1.0f;
+    ots_collision_debug.boom = ots_boom;
+    ots_collision_debug.camera_y = camera.p[1];
 
     /* World Y points down: keep the camera above the floor and under the
      * ceiling whatever the pitch. */

@@ -1,3 +1,4 @@
+#include <string.h>
 #include "map_htck.h"
 #include "common.h"
 #include "enums.h"
@@ -380,4 +381,121 @@ u_char FurnCoverCheck(u_short pos_x, short int pos_y, u_short pos_z,
     }
 
     return 0;
+}
+/* The same tests as HitChkSegment2All for one point, keeping what it hit:
+ * the over-the-shoulder camera's collision readout (debug overlay). */
+static int MikuPan_FurnDetail(u_short pos_x, short int pos_y, u_short pos_z,
+                              u_char room_no, MIKUPAN_HIT_DETAIL* out)
+{
+    u_int* map_dat = (u_int*) map_wrk.dat_adr;
+    u_int* room_table;
+    u_int* room_block;
+    int i;
+    u_char dt_num;
+
+    if (room_no == 0xff || map_dat == NULL)
+    {
+        return 0;
+    }
+    room_table = (u_int*) MikuPan_GetHostPointer(map_dat[11] + BASE_ADDRESS);
+    if (room_table == NULL)
+    {
+        return 0;
+    }
+    room_block = (u_int*) MikuPan_GetHostPointer(room_table[room_no + 1] + BASE_ADDRESS);
+    if (room_block == NULL)
+    {
+        return 0;
+    }
+    dt_num = *(u_char*) MikuPan_GetHostPointer(room_block[0] + BASE_ADDRESS);
+
+    for (i = 0; i < dt_num; i++)
+    {
+        u_int* furn_entry = (u_int*) MikuPan_GetHostPointer(room_block[i + 1] + BASE_ADDRESS);
+        FURN_DATA_POP* fedp;
+        int* area;
+        u_char type;
+
+        if (furn_entry == NULL)
+        {
+            continue;
+        }
+        fedp = (FURN_DATA_POP*) MikuPan_GetHostPointer(furn_entry[0] + BASE_ADDRESS);
+        if (fedp == NULL)
+        {
+            continue;
+        }
+        type = ((u_char*) fedp)[25];
+        if (type == 0xff)
+        {
+            continue;
+        }
+        area = (int*) MikuPan_GetHostPointer(furn_entry[1] + BASE_ADDRESS);
+        if (area == NULL || PosInAreaJudgeSub(area, pos_z, pos_x, type) == 0)
+        {
+            continue;
+        }
+        out->furn_id = fedp->id;
+        out->furn_top = fedp->top;
+        out->furn_btm = fedp->btm;
+        if (-fedp->top <= pos_y && pos_y <= -fedp->btm)
+        {
+            out->furn_xz_only = 0;
+            return 1;
+        }
+        out->furn_xz_only = 1;
+    }
+    return 0;
+}
+
+void MikuPan_HitPointDetail(const sceVu0FVECTOR p, MIKUPAN_HIT_DETAIL* out)
+{
+    u_short cmp_x = (u_short) p[0];
+    short cmp_y = (short) p[1];
+    u_short cmp_z = (u_short) p[2];
+    u_char room_id = map_wrk.now_room;
+    u_char tmp_hit_num = room_wrk.hit_num;
+    u_char room_no;
+    int i;
+    int j;
+
+    memset(out, 0, sizeof(*out));
+    out->room_id = 0xff;
+
+    for (i = 0; i < 2; i++)
+    {
+        if (room_id == 0xff)
+        {
+            room_id = map_wrk.next_room;
+            tmp_hit_num = room_wrk.hit_num_next;
+            continue;
+        }
+
+        room_no = GetDataRoom(MAP_HIT_CHECK, room_id);
+        for (j = 0; j < tmp_hit_num; j++)
+        {
+            if (PosInAreaJudge1(MAP_HIT_CHECK, room_no, j, cmp_z, cmp_x) != 0)
+            {
+                out->kind = 1;
+                out->room_id = room_id;
+                out->area = (u_char) j;
+                return;
+            }
+        }
+        if (DoorCoverCheck(cmp_x, cmp_y, cmp_z, room_id) != 0)
+        {
+            out->kind = 2;
+            out->room_id = room_id;
+            return;
+        }
+        room_no = GetDataRoom(MAP_FURNITUR, room_id);
+        if (MikuPan_FurnDetail(cmp_x, cmp_y, cmp_z, room_no, out) != 0)
+        {
+            out->kind = 3;
+            out->room_id = room_id;
+            return;
+        }
+        room_id = map_wrk.next_room;
+        tmp_hit_num = room_wrk.hit_num_next;
+    }
 }
