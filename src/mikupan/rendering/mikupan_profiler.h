@@ -347,6 +347,9 @@ typedef struct
 int MikuPan_DrawSourcePush(int kind, int detail0, int detail1);
 void MikuPan_DrawSourcePop(int token);
 void MikuPan_DrawSourceGetCurrent(MikuPan_DrawSourceState *out);
+/* Non-zero when a draw source of `kind` is anywhere on the stack (a room
+ * drawn inside the mirror pass is still the mirror pass). */
+int MikuPan_DrawSourceInside(int kind);
 const char *MikuPan_DrawSourceName(int kind);
 
 /* ── Per-draw-call capture (debug inspector) ───────────────────────── */

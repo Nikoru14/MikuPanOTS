@@ -10,6 +10,7 @@
 #include "mikupan_meshcache.h"
 #include "mikupan_pipeline.h"
 #include "mikupan_profiler.h"
+#include "mikupan/gameplay/mikupan_ots_geometry.h"
 #include "mikupan_shader.h"
 #include "SDL3/SDL_timer.h"
 #include <string.h>
@@ -204,6 +205,53 @@ void MikuPan_RenderMeshType0x32(SGDPROCUNITHEADER *pVUVN, SGDPROCUNITHEADER *pPU
     const int color_buf_idx = (mesh_type == 0x32) ? 3 : 2;
     const int uv_stride    = pipeline->buffers[uv_buf_idx].attributes[0].stride;
     const int color_stride = pipeline->buffers[color_buf_idx].attributes[0].stride;
+
+    /// The over-the-shoulder camera collides with the scenery as it is drawn:
+    /// hand it this mesh's positions and strips when it is room or furniture
+    /// geometry in the main scene (not a reflection or a shadow pass).
+    if (MikuPan_OtsGeomCollecting() && !MikuPan_IsShadowPassActive()
+        && !MikuPan_IsShadowReceiverPassActive()
+        && !MikuPan_DrawSourceInside(MIKUPAN_DRAW_SOURCE_MIRROR_PASS))
+    {
+        MikuPan_DrawSourceState source;
+        MikuPan_DrawSourceGetCurrent(&source);
+        if (source.kind == MIKUPAN_DRAW_SOURCE_ROOM_NEAR || source.kind == MIKUPAN_DRAW_SOURCE_ROOM_SS
+            || source.kind == MIKUPAN_DRAW_SOURCE_ROOM_BACKGROUND
+            || source.kind == MIKUPAN_DRAW_SOURCE_FURNITURE)
+        {
+            int strips[256];
+            int strip_count = GET_NUM_MESH(pPUHead);
+            _SGDVUMESHCOLORDATA *walk = pVMCD;
+            const float *positions;
+            int stride;
+            float model[4][4];
+
+            if (strip_count < 0 || strip_count > 256)
+            {
+                strip_count = 0;
+            }
+            for (int i = 0; i < strip_count; i++)
+            {
+                walk = (_SGDVUMESHCOLORDATA *) MikuPan_GetNextUnpackAddr((u_int *) walk);
+                strips[i] = walk->VifUnpack.NUM;
+                walk = (_SGDVUMESHCOLORDATA *) &walk->avColor[strips[i]];
+            }
+            if (mesh_type == 0x32)
+            {
+                positions = (const float *)(pVUVNData->VUVNData_Preset.aui
+                                            + (pVUVN->VUVNDesc.sNumNormal) * 3 + 10);
+                stride = 3;
+            }
+            else
+            {
+                positions = (const float *)&(((int *)pVUVN)[14]);
+                stride = pipeline->buffers[0].attributes[0].stride / (int)sizeof(float);
+            }
+            MikuPan_GetModelTransformMatrix(model);
+            MikuPan_OtsGeomRecordMesh(pPUHead, sgd_top_addr, positions, stride, strips,
+                                      strip_count, model, source.kind, source.detail0);
+        }
+    }
 
     MikuPan_FlushTexturedSpriteBatch();
 

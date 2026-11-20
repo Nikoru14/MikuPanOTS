@@ -385,6 +385,8 @@ void MikuPan_Setup3D();
 void MikuPan_Shutdown();
 void MikuPan_EndFrame();
 void MikuPan_SetModelTransformMatrix(sceVu0FVECTOR* m);
+/* The model (local-to-world) matrix last set, PS2 layout. */
+void MikuPan_GetModelTransformMatrix(float out[4][4]);
 void MikuPan_RenderMeshType0x32(SGDPROCUNITHEADER *pVUVN, SGDPROCUNITHEADER *pPUHead);
 void MikuPan_RenderMeshType0x82(unsigned int* pVUVN, unsigned int *pPUHead);
 void MikuPan_RenderShadowSilhouettePrepared(unsigned int* pVUVN, unsigned int *pPUHead,

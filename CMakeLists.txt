@@ -69,6 +69,7 @@ set(MIKUPAN_SOURCES
         "src/mikupan/io/mikupan_file.cpp"
         "src/mikupan/gameplay/mikupan_first_person.cpp"
         "src/mikupan/gameplay/mikupan_over_shoulder.cpp"
+        "src/mikupan/gameplay/mikupan_ots_geometry.cpp"
         "src/mikupan/gameplay/mikupan_item_icon_hud.cpp"
         "src/common/ul_math.cpp"
         "src/common/utility.cpp"

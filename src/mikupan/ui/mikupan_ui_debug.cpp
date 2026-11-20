@@ -1061,51 +1061,38 @@ void MikuPan_UiCameraDebugWindow(void)
                                             "furniture", "outside the room"};
 
         igSeparatorText("OTS collision");
-        igText("distance %.0f of %.0f  (wall limit %.0f, furniture limit %.0f)",
-               c->boom, c->requested, c->wall, c->prop);
-        igText("camera %.0f above feet; %d room pieces known", c->feet_y - c->camera_y,
-               c->boxes);
-        if (c->limited == 0)
+        igText("distance %.0f of %.0f  (limit %.0f)", c->boom, c->requested, c->wall);
+        igText("camera %.0f above feet", c->feet_y - c->camera_y);
+        if (c->geometry)
         {
-            igTextColored(ImVec4{0.15f, 1.0f, 0.35f, 1.0f}, "not limited");
+            igText("triangles: %d pieces drawn, boom crossed %d (%d triangles)",
+                   c->geom_pieces, c->geom_pieces_tested, c->geom_triangles_tested);
+            if (c->limited == 0)
+            {
+                igTextColored(ImVec4{0.15f, 1.0f, 0.35f, 1.0f}, "not limited");
+            }
+            else if (c->geom_outside)
+            {
+                igTextColored(ImVec4{1.0f, 0.78f, 0.10f, 1.0f},
+                              "limited: the boom leaves every room");
+            }
+            else
+            {
+                igTextColored(ImVec4{1.0f, 0.78f, 0.10f, 1.0f},
+                              "limited by %s %d, %.0f above feet",
+                              MikuPan_DrawSourceName(c->geom_source), c->geom_detail,
+                              c->feet_y - c->hit_y);
+            }
+        }
+        else if (c->limited == 0)
+        {
+            igTextColored(ImVec4{0.15f, 1.0f, 0.35f, 1.0f}, "not limited (walking collision)");
         }
         else
         {
             igTextColored(ImVec4{1.0f, 0.78f, 0.10f, 1.0f},
-                          "limited by %s: %s, %.0f above feet",
-                          c->limited == 1 ? "wall" : "furniture",
-                          kinds[c->hit_kind < 5 ? c->hit_kind : 0],
-                          c->feet_y - c->hit_y);
-            if (c->hit_kind == 1)
-            {
-                igText("room %u, hit area %u (no height data)", c->hit_room,
-                       c->hit_area);
-            }
-            if (c->hit_kind == 2)
-            {
-                igText("door state %u (%s)", c->hit_door_state,
-                       c->hit_door_state == 1 ? "closed: blocks" : "open or moving");
-            }
-            if (c->hit_kind == 1)
-            {
-                igText("%d small room pieces cover it, %d inside this area",
-                       c->hit_covering, c->hit_boxes);
-                if (c->hit_boxes > 0)
-                {
-                    igText("tallest inside the area: top %.0f above feet",
-                           c->hit_box_top);
-                }
-                else
-                {
-                    igText("none inside the area: kept as a wall");
-                }
-            }
-            if (c->hit_kind == 3 || c->hit_xz_only)
-            {
-                igText("furniture id %u: y from %d to %d%s", c->hit_furn_id,
-                       -c->hit_furn_top, -c->hit_furn_btm,
-                       c->hit_xz_only ? " (outline only)" : "");
-            }
+                          "walking collision: %s, %.0f above feet",
+                          kinds[c->hit_kind < 5 ? c->hit_kind : 0], c->feet_y - c->hit_y);
         }
     }
 

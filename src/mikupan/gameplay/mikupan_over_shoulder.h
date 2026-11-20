@@ -71,11 +71,6 @@ int MikuPan_OverShoulderOwnsMovement(void);
  * only show the inside of her model. */
 int MikuPan_OverShoulderShouldHidePlayerModel(void);
 
-/* Called for each room and furniture piece the renderer visits, with its
- * local-to-world matrix and the 8 corners of its local bounding box: the
- * camera takes the heights of low furniture from these. */
-void MikuPan_OverShoulderRecordUnitBox(sceVu0FMATRIX lwmtx, sceVu0FVECTOR* corners);
-
 /* What limited the camera's distance this frame, for the debug overlay. */
 typedef struct {
     int valid;
@@ -91,10 +86,16 @@ typedef struct {
     unsigned short hit_furn_id;
     short hit_furn_top, hit_furn_btm;
     int boxes;            /* room pieces known this frame */
-    int hit_covering;     /* small pieces whose box covers the limiting point */
-    int hit_boxes;        /* those that belong to its room hit area */
-    float hit_box_top;    /* the tallest of them, above feet */
     unsigned char hit_door_state;
+    /* Triangle collision against the drawn scenery (when geometry != 0). */
+    int geometry;
+    int geom_pieces;          /* drawn pieces known this frame */
+    int geom_pieces_tested;   /* pieces the boom crossed */
+    int geom_triangles_tested;
+    int geom_hit;
+    int geom_source;          /* draw-source kind of what it hit */
+    int geom_detail;          /* furniture / door number, room... */
+    int geom_outside;         /* stopped by leaving every room instead */
 } MikuPan_OtsCollisionDebug;
 
 const MikuPan_OtsCollisionDebug* MikuPan_OverShoulderCollisionDebug(void);

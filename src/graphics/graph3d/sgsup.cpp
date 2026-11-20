@@ -20,7 +20,6 @@
 #include "graphics/graph3d/sglight.h"
 #include "graphics/graph3d/sgsu.h"
 #include "mikupan/debug/mikupan_logging_c.h"
-#include "mikupan/gameplay/mikupan_over_shoulder.h"
 #include "mikupan/rendering/mikupan_baked_texture.h"
 #include "mikupan/rendering/mikupan_renderer.h"
 
@@ -358,10 +357,6 @@ void SetVUMeshDataP(u_int *prim)
 
 int BoundingBoxCalcP(u_int *prim)
 {
-    /* The over-the-shoulder camera reads the heights of the room's pieces
-     * from these boxes (the walking collision has none). */
-    MikuPan_OverShoulderRecordUnitBox(lcp[prim[2]].lwmtx, (sceVu0FVECTOR *) &prim[4]);
-
     if (CheckBoundingBox(prim) == 0)
     {
         return 0;
