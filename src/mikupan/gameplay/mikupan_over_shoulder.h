@@ -91,7 +91,8 @@ typedef struct {
     unsigned short hit_furn_id;
     short hit_furn_top, hit_furn_btm;
     int boxes;            /* room pieces known this frame */
-    int hit_boxes;        /* small pieces that belong to its room hit area */
+    int hit_covering;     /* small pieces whose box covers the limiting point */
+    int hit_boxes;        /* those that belong to its room hit area */
     float hit_box_top;    /* the tallest of them, above feet */
     unsigned char hit_door_state;
 } MikuPan_OtsCollisionDebug;
