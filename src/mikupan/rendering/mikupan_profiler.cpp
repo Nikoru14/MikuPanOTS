@@ -128,6 +128,20 @@ void MikuPan_DrawSourcePop(int token)
     }
 }
 
+int MikuPan_DrawSourceInside(int kind)
+{
+    int depth = g_draw_source_depth < DRAWSOURCE_STACK_MAX ? g_draw_source_depth
+                                                           : DRAWSOURCE_STACK_MAX;
+    for (int i = 0; i < depth; i++)
+    {
+        if (g_draw_source_stack[i].kind == kind)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 void MikuPan_DrawSourceGetCurrent(MikuPan_DrawSourceState *out)
 {
     if (out == NULL)

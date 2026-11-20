@@ -71,4 +71,33 @@ int MikuPan_OverShoulderOwnsMovement(void);
  * only show the inside of her model. */
 int MikuPan_OverShoulderShouldHidePlayerModel(void);
 
+/* What limited the camera's distance this frame, for the debug overlay. */
+typedef struct {
+    int valid;
+    float requested;  /* distance asked for */
+    float wall;       /* limit from walls, doors and room hit areas */
+    float prop;       /* limit from thick furniture */
+    float boom;       /* distance used */
+    float camera_y;   /* world Y (up is negative) */
+    float feet_y;     /* Miku's feet */
+    int limited;      /* 0 none, 1 wall, 2 furniture */
+    float hit_y;      /* height of the point that limited it */
+    unsigned char hit_kind, hit_room, hit_area, hit_xz_only;
+    unsigned short hit_furn_id;
+    short hit_furn_top, hit_furn_btm;
+    int boxes;            /* room pieces known this frame */
+    unsigned char hit_door_state;
+    /* Triangle collision against the drawn scenery (when geometry != 0). */
+    int geometry;
+    int geom_pieces;          /* drawn pieces known this frame */
+    int geom_pieces_tested;   /* pieces the boom crossed */
+    int geom_triangles_tested;
+    int geom_hit;
+    int geom_source;          /* draw-source kind of what it hit */
+    int geom_detail;          /* furniture / door number, room... */
+    int geom_outside;         /* stopped by leaving every room instead */
+} MikuPan_OtsCollisionDebug;
+
+const MikuPan_OtsCollisionDebug* MikuPan_OverShoulderCollisionDebug(void);
+
 #endif // MIKUPAN_MIKUPAN_OVER_SHOULDER_H

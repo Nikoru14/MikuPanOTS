@@ -71,6 +71,11 @@ static void MikuPan_RecomputeAndUploadDerived(void)
     MikuPan_SetUniformMatrix3fvToAllShaders((float*)viewNormalMatrix3, "viewNormalMatrix");
 }
 
+void MikuPan_GetModelTransformMatrix(float out[4][4])
+{
+    memcpy(out, g_cached_model_matrix, sizeof(g_cached_model_matrix));
+}
+
 void MikuPan_SetModelTransformMatrix(sceVu0FVECTOR *m)
 {
     if (g_has_cached_model && memcmp(g_cached_model_matrix, m, sizeof(g_cached_model_matrix)) == 0)

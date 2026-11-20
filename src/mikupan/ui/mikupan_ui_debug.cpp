@@ -1053,6 +1053,49 @@ void MikuPan_UiCameraDebugWindow(void)
         }
     }
 
+    /* Over the shoulder: what limited the camera's distance this frame. */
+    if (MikuPan_OverShoulderActive())
+    {
+        const MikuPan_OtsCollisionDebug* c = MikuPan_OverShoulderCollisionDebug();
+        static const char* const kinds[] = {"clear", "room hit area", "door",
+                                            "furniture", "outside the room"};
+
+        igSeparatorText("OTS collision");
+        igText("distance %.0f of %.0f  (limit %.0f)", c->boom, c->requested, c->wall);
+        igText("camera %.0f above feet", c->feet_y - c->camera_y);
+        if (c->geometry)
+        {
+            igText("triangles: %d pieces drawn, boom crossed %d (%d triangles)",
+                   c->geom_pieces, c->geom_pieces_tested, c->geom_triangles_tested);
+            if (c->limited == 0)
+            {
+                igTextColored(ImVec4{0.15f, 1.0f, 0.35f, 1.0f}, "not limited");
+            }
+            else if (c->geom_outside)
+            {
+                igTextColored(ImVec4{1.0f, 0.78f, 0.10f, 1.0f},
+                              "limited: the boom leaves every room");
+            }
+            else
+            {
+                igTextColored(ImVec4{1.0f, 0.78f, 0.10f, 1.0f},
+                              "limited by %s %d, %.0f above feet",
+                              MikuPan_DrawSourceName(c->geom_source), c->geom_detail,
+                              c->feet_y - c->hit_y);
+            }
+        }
+        else if (c->limited == 0)
+        {
+            igTextColored(ImVec4{0.15f, 1.0f, 0.35f, 1.0f}, "not limited (walking collision)");
+        }
+        else
+        {
+            igTextColored(ImVec4{1.0f, 0.78f, 0.10f, 1.0f},
+                          "walking collision: %s, %.0f above feet",
+                          kinds[c->hit_kind < 5 ? c->hit_kind : 0], c->feet_y - c->hit_y);
+        }
+    }
+
     igEnd();
 }
 

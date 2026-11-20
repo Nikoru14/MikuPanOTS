@@ -5,6 +5,7 @@
 #include "common/ul_math.h"
 #include "ingame/map/map_ctrl.h"
 #include "ingame/map/map_htck.h"
+#include "ingame/map/door_ctl.h"
 #include "ingame/plyr/plyr_ctl.h"
 #include "ingame/plyr/unit_ctl.h"
 #include "graphics/graph3d/sglib.h"
@@ -12,10 +13,12 @@
 #include "mikupan/io/mikupan_controller.h"
 #include "mikupan/gameplay/mikupan_first_person.h"
 #include "mikupan/gameplay/mikupan_over_shoulder.h"
+#include "mikupan/gameplay/mikupan_ots_geometry.h"
 #include "os/key_cnf.h"
 #include "sce/libvu0.h"
 
 #include <math.h>
+#include <string.h>
 
 #define PI 3.1415928f
 #define DEG2RAD(x) ((float)(x) * PI / 180.0f)
@@ -425,6 +428,15 @@ static int OtsCanOwnGameplay(void)
 #define OTS_SOFT 1
 #define OTS_HARD 2
 
+/* Off the map or outside every room: a hard limit even for the triangle
+ * collision, in case a wall's geometry is missing there. */
+#define OTS_OUTSIDE 3
+
+/* The camera as a sphere against the drawn scenery (mikupan_ots_geometry):
+ * its radius, and how far in front of a hit it stops. */
+#define OTS_CAMERA_RADIUS 25.0f
+#define OTS_GEOM_MARGIN 30.0f
+
 /* Classifies a point against the only collision data the game has: the
  * room outlines and the wall, door and furniture areas Miku cannot walk
  * into.  Outside every room, walls and doors are hard; furniture is soft
@@ -435,12 +447,12 @@ static int OtsPointClass(const sceVu0FVECTOR p)
 
     if (p[0] < 0.0f || p[0] > 65535.0f || p[2] < 0.0f || p[2] > 65535.0f)
     {
-        return OTS_HARD;
+        return OTS_OUTSIDE;
     }
 
     if (GetPointRoomNo((u_short)p[0], (u_short)p[2]) == 0xff)
     {
-        return OTS_HARD;
+        return OTS_OUTSIDE;
     }
 
     q[0] = p[0];
@@ -452,6 +464,12 @@ static int OtsPointClass(const sceVu0FVECTOR p)
     {
         case 0:
             return OTS_FREE;
+        case 1:
+            return OTS_HARD;
+        case 2:
+            /* a closed door blocks the view; an open or moving one is a thin
+             * panel the camera passes, as Miku walks through the doorway */
+            return door_cover_hit_stts == 1 ? OTS_HARD : OTS_FREE;
         case 3:
             return OTS_SOFT;
         default:
@@ -528,6 +546,24 @@ static float OtsFirstHit(const sceVu0FVECTOR from, const sceVu0FVECTOR dir,
 /* How far the camera may hang back along `dir` before it would sit in a
  * wall (returned), and before it would sit inside a piece of furniture too
  * thick to look through (`prop_out`, never more than the wall limit). */
+/* The last triangle cast of the boom, for the debug readout. */
+static int ots_geom_used = 0;
+static int ots_geom_outside = 0;
+static MikuPan_OtsGeomHit ots_geom_last;
+
+/* How far along `dir` the scenery that is drawn lets the camera go: the
+ * room's triangles, cast as a sphere, and never outside every room. */
+static float OtsGeomFree(const sceVu0FVECTOR from, const sceVu0FVECTOR dir, float length,
+                         MikuPan_OtsGeomHit* hit, int* outside_first)
+{
+    float outside;
+
+    MikuPan_OtsGeomCast(from, dir, length, OTS_CAMERA_RADIUS, hit);
+    outside = OtsFirstHit(from, dir, length, OTS_OUTSIDE);
+    *outside_first = outside < hit->distance;
+    return outside < hit->distance ? outside : hit->distance;
+}
+
 static float OtsFreeBoom(const sceVu0FVECTOR from, const sceVu0FVECTOR dir,
                          float length, float* prop_out)
 {
@@ -537,6 +573,23 @@ static float OtsFreeBoom(const sceVu0FVECTOR from, const sceVu0FVECTOR dir,
     float back;
     float front;
 
+    /* The drawn scenery: a table is as high as it is drawn, a wall is a
+     * wall, an open doorway is open. */
+    if (MikuPan_OtsGeomPieceCount() > 0)
+    {
+        ots_geom_used = 1;
+        wall = OtsGeomFree(from, dir, length, &ots_geom_last, &ots_geom_outside);
+        if (wall < length)
+        {
+            wall -= OTS_GEOM_MARGIN;
+        }
+        boom = wall < 0.0f ? 0.0f : wall;
+        *prop_out = boom;
+        return boom;
+    }
+    ots_geom_used = 0;
+
+    /* Before any scenery has been drawn: the walking collision. */
     wall = OtsFirstHit(from, dir, length, OTS_HARD);
 
     if (wall < length)
@@ -603,6 +656,84 @@ static float OtsFreeBoom(const sceVu0FVECTOR from, const sceVu0FVECTOR dir,
     return boom;
 }
 
+/* What limited the boom this frame (debug overlay readout). */
+static MikuPan_OtsCollisionDebug ots_collision_debug;
+
+static void OtsRecordCollision(const sceVu0FVECTOR from, const sceVu0FVECTOR dir,
+                               float wall, float prop)
+{
+    MikuPan_OtsCollisionDebug* d = &ots_collision_debug;
+    float requested = mikupan_over_shoulder_distance;
+    float at = -1.0f;
+
+    d->valid = 1;
+    d->requested = requested;
+    d->wall = wall;
+    d->prop = prop;
+    d->feet_y = plyr_wrk.move_box.pos[1];
+    d->limited = 0;
+    d->hit_kind = 0;
+    d->geometry = ots_geom_used;
+    d->geom_pieces = MikuPan_OtsGeomPieceCount();
+
+    if (ots_geom_used)
+    {
+        d->geom_pieces_tested = ots_geom_last.pieces_tested;
+        d->geom_triangles_tested = ots_geom_last.triangles_tested;
+        d->geom_hit = ots_geom_last.hit;
+        d->geom_source = ots_geom_last.source;
+        d->geom_detail = ots_geom_last.detail;
+        d->geom_outside = ots_geom_outside;
+        if (wall < requested - 1.0f)
+        {
+            d->limited = 1;
+            d->hit_y = from[1] + dir[1] * (wall + OTS_GEOM_MARGIN);
+        }
+        return;
+    }
+
+    if (wall < requested - 1.0f)
+    {
+        d->limited = 1;
+        at = wall + OTS_WALL_MARGIN + OTS_PROBE_STEP * 0.5f;
+    }
+    if (prop < wall - 1.0f)
+    {
+        d->limited = 2;
+        at = prop + OTS_WALL_MARGIN * 0.5f + OTS_PROBE_STEP * 0.5f;
+    }
+    if (at >= 0.0f)
+    {
+        sceVu0FVECTOR p;
+        MIKUPAN_HIT_DETAIL hit;
+
+        OtsAlong(p, from, dir, at);
+        d->hit_y = p[1];
+        if (GetPointRoomNo((u_short)p[0], (u_short)p[2]) == 0xff)
+        {
+            memset(&hit, 0, sizeof(hit));
+            hit.kind = 4; /* outside every room */
+        }
+        else
+        {
+            MikuPan_HitPointDetail(p, &hit);
+        }
+        d->hit_kind = hit.kind;
+        d->hit_door_state = hit.kind == 2 ? door_cover_hit_stts : 0;
+        d->hit_room = hit.room_id;
+        d->hit_area = hit.area;
+        d->hit_xz_only = hit.furn_xz_only;
+        d->hit_furn_id = hit.furn_id;
+        d->hit_furn_top = hit.furn_top;
+        d->hit_furn_btm = hit.furn_btm;
+    }
+}
+
+const MikuPan_OtsCollisionDebug* MikuPan_OverShoulderCollisionDebug(void)
+{
+    return &ots_collision_debug;
+}
+
 /* Fraction of the shoulder offset that stays clear of walls. */
 static float OtsFreeShoulder(const sceVu0FVECTOR from, const sceVu0FVECTOR offset)
 {
@@ -622,7 +753,17 @@ static float OtsFreeShoulder(const sceVu0FVECTOR from, const sceVu0FVECTOR offse
 
     /* Look a margin past the offset so the camera keeps clear of the wall
      * it is beside, not just out of it. */
-    free_len = OtsFirstHit(from, dir, length + OTS_SHOULDER_MARGIN, OTS_HARD);
+    if (MikuPan_OtsGeomPieceCount() > 0)
+    {
+        MikuPan_OtsGeomHit hit;
+        int outside_first;
+
+        free_len = OtsGeomFree(from, dir, length + OTS_SHOULDER_MARGIN, &hit, &outside_first);
+    }
+    else
+    {
+        free_len = OtsFirstHit(from, dir, length + OTS_SHOULDER_MARGIN, OTS_HARD);
+    }
 
     if (free_len >= length + OTS_SHOULDER_MARGIN)
     {
@@ -1109,6 +1250,7 @@ static void OtsBuildCamera(void)
     {
         allowed = OtsFreeBoom(start, back, allowed, &prop_allowed);
     }
+    OtsRecordCollision(start, back, allowed, prop_allowed);
 
     if (ots_boom > allowed)
     {
@@ -1137,6 +1279,8 @@ static void OtsBuildCamera(void)
     camera.p[1] = start[1] + back[1] * ots_boom;
     camera.p[2] = start[2] + back[2] * ots_boom;
     camera.p[3] = 1.0f;
+    ots_collision_debug.boom = ots_boom;
+    ots_collision_debug.camera_y = camera.p[1];
 
     /* World Y points down: keep the camera above the floor and under the
      * ceiling whatever the pitch. */
@@ -1233,6 +1377,11 @@ void MikuPan_OverShoulderToggle(void)
 
 void MikuPan_OverShoulderBeginFrame(void)
 {
+    /* The scenery drawn last frame is what the camera collides with now. */
+    MikuPan_OtsGeomNextFrame();
+    MikuPan_OtsGeomSetCollecting(MikuPan_OverShoulderEnabled()
+                                 && mikupan_over_shoulder_collision_enabled);
+
     /* CameraMain() can hand the frame to a special camera before reaching
      * us; treat that like any other frame we did not own. */
     if (!ots_ctrl_ran)
