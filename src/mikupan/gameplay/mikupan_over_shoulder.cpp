@@ -333,6 +333,13 @@ static int OtsIngameModeAllowsCamera(void)
         case INGAME_MODE_SPD_MAP:
         case INGAME_MODE_SPD_OPT:
             return 1;
+        case INGAME_MODE_AREA_MOVE:
+            /* Opening a door that leads to the next area (one whose door
+             * type loads, attribute 0x10) switches to this mode for the
+             * three frames MapAreaMain() takes to queue the load, then back
+             * to normal play.  Nobody moves meanwhile; handing the camera
+             * back for them flashed the room's fixed angle at the door. */
+            return 1;
         case INGAME_MODE_EVENT:
             /* Most events (examining an object, a message, picking something
              * up) set no camera of their own: the original simply kept the
