@@ -339,6 +339,8 @@ bool TryLoadConfigurationFile(const std::filesystem::path& path)
                mikupan_configuration.input.finder_gyro.invert_y);
     ApplyValue(ini, "input", "finder_gyro_turn_axis",
                mikupan_configuration.input.finder_gyro.turn_axis);
+    ApplyValue(ini, "input", "finder_gyro_recenter",
+               mikupan_configuration.input.finder_gyro.recenter);
     ApplyValue(ini, "input", "bindings_saved",
                mikupan_configuration.input.bindings_saved);
     for (int i = 0; i < 16; i++)
@@ -592,6 +594,8 @@ bool TrySaveConfigurationFile(const std::filesystem::path& path)
              mikupan_configuration.input.finder_gyro.invert_y);
     SetValue(ini, "input", "finder_gyro_turn_axis",
              mikupan_configuration.input.finder_gyro.turn_axis);
+    SetValue(ini, "input", "finder_gyro_recenter",
+             mikupan_configuration.input.finder_gyro.recenter);
     SetValue(ini, "input", "bindings_saved",
              mikupan_configuration.input.bindings_saved);
     if (mikupan_configuration.input.bindings_saved)

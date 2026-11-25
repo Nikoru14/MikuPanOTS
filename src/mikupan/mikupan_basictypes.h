@@ -187,6 +187,7 @@ typedef struct
     int invert_x;
     int invert_y;
     int turn_axis;
+    int recenter; /* fork: MIKUPAN_FINDER_GYRO_RECENTER_* */
 } MikuPan_ConfigFinderGyro;
 
 typedef struct

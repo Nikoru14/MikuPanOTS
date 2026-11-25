@@ -122,7 +122,8 @@ MikuPan_Config mikupan_configuration = {
             MIKUPAN_FINDER_GYRO_SENSITIVITY_DEFAULT,
             0,
             0,
-            MIKUPAN_FINDER_GYRO_TURN_YAW
+            MIKUPAN_FINDER_GYRO_TURN_YAW,
+            MIKUPAN_FINDER_GYRO_RECENTER_ZERO
         }
     },
     "",
@@ -410,6 +411,11 @@ static void MikuPan_ConfigurationValidateInput(MikuPan_ConfigInput* input)
     }
     input->finder_gyro.invert_x = input->finder_gyro.invert_x ? 1 : 0;
     input->finder_gyro.invert_y = input->finder_gyro.invert_y ? 1 : 0;
+    if (input->finder_gyro.recenter < MIKUPAN_FINDER_GYRO_RECENTER_ZERO
+        || input->finder_gyro.recenter > MIKUPAN_FINDER_GYRO_RECENTER_START)
+    {
+        input->finder_gyro.recenter = MIKUPAN_FINDER_GYRO_RECENTER_ZERO;
+    }
     if (input->finder_gyro.turn_axis != MIKUPAN_FINDER_GYRO_TURN_ROLL)
     {
         input->finder_gyro.turn_axis = MIKUPAN_FINDER_GYRO_TURN_YAW;

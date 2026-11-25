@@ -1716,6 +1716,13 @@ Page ControlsPage(void)
                [](bool on) { MikuPan_SetFinderGyroInvertY(on ? 1 : 0); }),
         GyroOn));
     rows.push_back(When(
+        Choice("Gyro Recenter Behavior",
+               Fixed("The touch pad's right half with the Camera Obscura up. It always holds the gyro still while pressed, so the controller can be re-gripped. Zero: the view stays where it is. Level: the view tips back to level. Level and back to start: it also turns back to where Miku faced when she raised it."),
+               {"Zero", "Level", "Level and back to start"},
+               [] { return MikuPan_FinderGyroRecenter(); },
+               [](int value) { MikuPan_SetFinderGyroRecenter(value); }),
+        GyroOn));
+    rows.push_back(When(
         Action("Recalibrate Gyro",
                Fixed("Forget the learned drift; set the controller down and keep it still to learn it again."),
                "Recalibrate", [] { MikuPan_FinderGyroRecalibrate(); }),
