@@ -2330,6 +2330,10 @@ u_char CompleReqChk(MAP_CAM_INFO *mci)
     return req;
 }
 
+/* Fork: where she faced as the finder went up (FinderModeCameraCtrl()), for
+ * the gyro's "level and back to start" recenter (SetFinderRot()). */
+static float finder_gyro_start_yaw = 0.0f;
+
 void FinderModeCameraCtrl()
 {
     MOVE_BOX *mb;
@@ -2342,6 +2346,12 @@ void FinderModeCameraCtrl()
      * swing or the paralysis, which take the aim away for a few frames, are not
      * mistaken for a time when the pad's drift may be learned. */
     MikuPan_FinderGyroRequest();
+    /* Fork: where she faced as the finder went up, for the gyro's "level and
+     * back to start" recenter (SetFinderRot()). */
+    if (MikuPan_FinderGyroAimStarted())
+    {
+        finder_gyro_start_yaw = plyr_wrk.move_box.rot[1];
+    }
 
     if (plyr_wrk.move_mot == 11)
     {
@@ -2851,6 +2861,23 @@ void SetFinderRot()
         {
             look_yaw += gyro_yaw;
             look_pitch += gyro_pitch;
+        }
+
+        /* Fork: the touch pad's right half recenters as the Gyro Recenter
+         * Behavior says: level, and back to where she faced when the finder
+         * went up.  Straight onto the view, past the zoom scaling below. */
+        {
+            const int recenter = MikuPan_FinderGyroRecenterPressed();
+            if (recenter == MIKUPAN_FINDER_GYRO_RECENTER_START)
+            {
+                mb->rot[1] = finder_gyro_start_yaw;
+                RotLimitChk(&mb->rot[1]);
+            }
+            if (recenter == MIKUPAN_FINDER_GYRO_RECENTER_LEVEL
+                || recenter == MIKUPAN_FINDER_GYRO_RECENTER_START)
+            {
+                plyr_wrk.frot_x = 0.0f;
+            }
         }
 
         if (look_yaw != 0.0f || look_pitch != 0.0f)

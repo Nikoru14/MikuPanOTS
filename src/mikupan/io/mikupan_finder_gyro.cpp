@@ -88,6 +88,32 @@ bool Aiming(void)
     return s_request || s_request_prev;
 }
 
+/* Fork: the touch pad clicked on its right half -- SDL's touchpad button,
+ * taken as the right half when the first finger is there or the pad says
+ * nothing of its fingers. */
+bool s_recenter_was_held = false;
+
+bool TouchpadRightHeld(void)
+{
+    if (s_gamepad == nullptr || !SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_TOUCHPAD))
+    {
+        return false;
+    }
+    if (SDL_GetNumGamepadTouchpads(s_gamepad) > 0
+        && SDL_GetNumGamepadTouchpadFingers(s_gamepad, 0) > 0)
+    {
+        bool down = false;
+        float x = 0.0f;
+        float y = 0.0f;
+        float pressure = 0.0f;
+        if (SDL_GetGamepadTouchpadFinger(s_gamepad, 0, 0, &down, &x, &y, &pressure) && down)
+        {
+            return x >= 0.5f;
+        }
+    }
+    return true;
+}
+
 /* Drop motion in flight and the sample clock, keeping the calibration.  For
  * anything that breaks the run of samples: focus lost, the gyro switched. */
 void ClearMotion(void)
@@ -323,8 +349,10 @@ void MikuPan_FinderGyroBeginFrame(void)
     s_request = false;
     s_suppressed = MikuPan_UiIsMenuOpen() || MikuPan_RmlOptionsIsOpen();
 
-    s_look_yaw = s_request_prev ? s_motion_yaw : 0.0f;
-    s_look_pitch = s_request_prev ? s_motion_pitch : 0.0f;
+    /* Fork: a re-grip lets this frame's motion go. */
+    const bool regrip = s_request_prev && TouchpadRightHeld();
+    s_look_yaw = s_request_prev && !regrip ? s_motion_yaw : 0.0f;
+    s_look_pitch = s_request_prev && !regrip ? s_motion_pitch : 0.0f;
     s_motion_yaw = 0.0f;
     s_motion_pitch = 0.0f;
 }
@@ -436,13 +464,45 @@ void MikuPan_SetFinderGyroTurnAxis(int axis)
                                : MIKUPAN_FINDER_GYRO_TURN_YAW;
 }
 
+int MikuPan_FinderGyroRecenter(void)
+{
+    return Settings().recenter;
+}
+
+void MikuPan_SetFinderGyroRecenter(int recenter)
+{
+    Settings().recenter = recenter >= MIKUPAN_FINDER_GYRO_RECENTER_ZERO
+                                  && recenter <= MIKUPAN_FINDER_GYRO_RECENTER_START
+                              ? recenter
+                              : MIKUPAN_FINDER_GYRO_RECENTER_ZERO;
+}
+
+int MikuPan_FinderGyroRegripHeld(void)
+{
+    return s_active && Aiming() && TouchpadRightHeld() ? 1 : 0;
+}
+
+int MikuPan_FinderGyroRecenterPressed(void)
+{
+    const bool held = s_active && Aiming() && TouchpadRightHeld();
+    const bool pressed = held && !s_recenter_was_held;
+    s_recenter_was_held = held;
+    return pressed ? Settings().recenter : -1;
+}
+
+int MikuPan_FinderGyroAimStarted(void)
+{
+    return s_request && !s_request_prev ? 1 : 0;
+}
+
 int MikuPan_FinderGyroSettingsAreDefault(void)
 {
     const MikuPan_ConfigFinderGyro& settings = Settings();
     return settings.enabled == 1
            && settings.sensitivity == MIKUPAN_FINDER_GYRO_SENSITIVITY_DEFAULT
            && settings.invert_x == 0 && settings.invert_y == 0
-           && settings.turn_axis == MIKUPAN_FINDER_GYRO_TURN_YAW;
+           && settings.turn_axis == MIKUPAN_FINDER_GYRO_TURN_YAW
+           && settings.recenter == MIKUPAN_FINDER_GYRO_RECENTER_ZERO;
 }
 
 void MikuPan_FinderGyroResetSettings(void)
@@ -451,6 +511,7 @@ void MikuPan_FinderGyroResetSettings(void)
     MikuPan_SetFinderGyroInvertX(0);
     MikuPan_SetFinderGyroInvertY(0);
     MikuPan_SetFinderGyroTurnAxis(MIKUPAN_FINDER_GYRO_TURN_YAW);
+    MikuPan_SetFinderGyroRecenter(MIKUPAN_FINDER_GYRO_RECENTER_ZERO);
     MikuPan_SetFinderGyroEnabled(1);
 }
 

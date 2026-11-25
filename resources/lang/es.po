@@ -1622,6 +1622,21 @@ msgstr "Invertir X del giroscopio"
 msgid "Invert Gyro Y"
 msgstr "Invertir Y del giroscopio"
 
+msgid "Gyro Recenter Behavior"
+msgstr "Comportamiento del recentrado del giroscopio"
+
+msgid "Zero"
+msgstr "Cero"
+
+msgid "Level"
+msgstr "Nivelar"
+
+msgid "Level and back to start"
+msgstr "Nivelar y volver al inicio"
+
+msgid "The touch pad's right half with the Camera Obscura up. It always holds the gyro still while pressed, so the controller can be re-gripped. Zero: the view stays where it is. Level: the view tips back to level. Level and back to start: it also turns back to where Miku faced when she raised it."
+msgstr "La mitad derecha del panel táctil con la Cámara Obscura levantada. Mientras se mantiene pulsada, el giroscopio se queda quieto para poder volver a agarrar el mando. Cero: la vista se queda donde está. Nivelar: la vista vuelve a quedar nivelada. Nivelar y volver al inicio: además vuelve hacia donde miraba Miku al levantarla."
+
 msgid "Swap left and right."
 msgstr "Intercambia izquierda y derecha."
 

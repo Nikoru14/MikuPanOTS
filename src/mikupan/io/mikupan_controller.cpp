@@ -1378,6 +1378,13 @@ int MikuPan_ReadController(unsigned char *rdata)
                 case MIKUPAN_CONTROLLER_BIND_BUTTON:
                     pressed = SDL_GetGamepadButton(
                         mikupan_gamepad, (SDL_GamepadButton) mikupan_controller_map[i].code);
+                    /* Fork: on the PS5 a touch pad click is "back" (Select)
+                     * too; while its right half re-grips the gyro it is not. */
+                    if (mikupan_controller_map[i].code == SDL_GAMEPAD_BUTTON_BACK
+                        && MikuPan_FinderGyroRegripHeld())
+                    {
+                        pressed = false;
+                    }
                     strength = pressed ? 255 : 0;
                     break;
                 case MIKUPAN_CONTROLLER_BIND_AXIS:

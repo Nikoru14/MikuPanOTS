@@ -40,6 +40,15 @@ extern "C" {
 #define MIKUPAN_FINDER_GYRO_TURN_YAW  (0) /* point the pad left and right, like a torch */
 #define MIKUPAN_FINDER_GYRO_TURN_ROLL (1) /* tip it sideways, like a steering wheel */
 
+/// Fork: what the touch pad's right half does with the finder up.  Each holds
+/// the gyro still while it is pressed, so the controller can be brought back
+/// to a comfortable angle (on the PS5, where a touch pad click is Select, the
+/// left half stays Select); the last two also move the view.
+#define MIKUPAN_FINDER_GYRO_RECENTER_ZERO  (0) /* the view stays put: re-grip only */
+#define MIKUPAN_FINDER_GYRO_RECENTER_LEVEL (1) /* the view tips back to level */
+#define MIKUPAN_FINDER_GYRO_RECENTER_START (2) /* level, and turned back to where she
+                                                * faced when the finder went up */
+
 /// What the menus show. rate_* is the pad's motion now, bias removed, in
 /// degrees a second and in the camera's own signs (yaw positive to the right,
 /// pitch positive up), before sensitivity -- so it reads the same whatever the
@@ -87,6 +96,19 @@ int MikuPan_FinderGyroTurnAxis(void);
 void MikuPan_SetFinderGyroTurnAxis(int axis);
 int MikuPan_FinderGyroSettingsAreDefault(void);
 void MikuPan_FinderGyroResetSettings(void);
+
+int MikuPan_FinderGyroRecenter(void);
+void MikuPan_SetFinderGyroRecenter(int recenter);
+
+/// Fork: 1 while the touch pad's right half re-grips (finder up, gyro on); the
+/// controller layer leaves Select out meanwhile.
+int MikuPan_FinderGyroRegripHeld(void);
+/// Fork: the frame the touch pad's right half went down with the finder up and
+/// the gyro on: the chosen MIKUPAN_FINDER_GYRO_RECENTER_*; -1 on every other
+/// frame.  Read once a frame, by the finder.
+int MikuPan_FinderGyroRecenterPressed(void);
+/// Fork: 1 on the first frame the finder asks for the gyro (it just went up).
+int MikuPan_FinderGyroAimStarted(void);
 
 /// Forget the learned bias; it is learned again the next time the pad lies
 /// still with the finder down.

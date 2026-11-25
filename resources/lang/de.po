@@ -1622,6 +1622,21 @@ msgstr "Gyro-X umkehren"
 msgid "Invert Gyro Y"
 msgstr "Gyro-Y umkehren"
 
+msgid "Gyro Recenter Behavior"
+msgstr "Gyro-Zentrierverhalten"
+
+msgid "Zero"
+msgstr "Null"
+
+msgid "Level"
+msgstr "Waagerecht"
+
+msgid "Level and back to start"
+msgstr "Waagerecht und zurück zum Start"
+
+msgid "The touch pad's right half with the Camera Obscura up. It always holds the gyro still while pressed, so the controller can be re-gripped. Zero: the view stays where it is. Level: the view tips back to level. Level and back to start: it also turns back to where Miku faced when she raised it."
+msgstr "Die rechte Hälfte des Touchpads bei erhobener Camera Obscura. Solange sie gedrückt ist, hält sie den Gyrosensor still, damit der Controller neu gegriffen werden kann. Null: Die Ansicht bleibt, wo sie ist. Waagerecht: Die Ansicht kippt zurück in die Waagerechte. Waagerecht und zurück zum Start: Sie dreht sich außerdem dorthin zurück, wohin Miku beim Anheben blickte."
+
 msgid "Swap left and right."
 msgstr "Links und rechts vertauschen."
 
