@@ -159,6 +159,14 @@ static float ots_guide_pitch = 0.0f;
  * cut never flips the direction Miku is walking. */
 static float ots_move_ref = 0.0f;
 static int ots_move_latched = 0;
+/* The stick's angle when a cut's hold began.  The hold lets go when the stick
+ * is steered this far from it (the player chose a new way), and back under
+ * this camera with the stick still held it eases onto this camera's heading
+ * this much a tick, so the walk lines up with the view without the stick
+ * having to be let go. */
+static float ots_move_latch_stick = 0.0f;
+#define OTS_MOVE_LATCH_STEER_DEG 50.0f
+#define OTS_MOVE_LATCH_EASE_DEG  12.0f
 static int ots_move_src_prev = -1;
 
 /* Orbit remembered from the last frame this camera was active. */
@@ -1459,7 +1467,7 @@ int MikuPan_OverShoulderCameraCtrl(void)
 /* The left stick walks Miku relative to the camera on screen: ours, or an
  * authored shot the Scare Camera setting cut to.  Across a cut the old
  * heading is held until the stick is released, as the original game did. */
-static void OtsUpdateMoveReference(int stick_held)
+static void OtsUpdateMoveReference(int stick_held, float stick_angle)
 {
     int source = ots_active ? 0 : 1;
     float reference;
@@ -1473,14 +1481,40 @@ static void OtsUpdateMoveReference(int stick_held)
         reference = GetTrgtRotY(camera.p, camera.i);
     }
 
-    if (ots_move_src_prev >= 0 && source != ots_move_src_prev && stick_held)
+    if (ots_move_src_prev >= 0 && source != ots_move_src_prev && stick_held &&
+        !ots_move_latched)
     {
         ots_move_latched = 1;
+        ots_move_latch_stick = stick_angle;
     }
 
     if (!stick_held)
     {
         ots_move_latched = 0;
+    }
+    else if (ots_move_latched &&
+             fabsf(OtsWrap(stick_angle - ots_move_latch_stick)) >
+                 DEG2RAD(OTS_MOVE_LATCH_STEER_DEG))
+    {
+        /* Steered a new way: the camera on screen decides it now. */
+        ots_move_latched = 0;
+    }
+    else if (ots_move_latched && source == 0)
+    {
+        /* Back under this camera with the stick still held (through a door,
+         * out of an event or a search): ease onto its heading rather than
+         * keep the old one until the stick is let go. */
+        float gap = OtsWrap(reference - ots_move_ref);
+        float step = DEG2RAD(OTS_MOVE_LATCH_EASE_DEG);
+
+        if (fabsf(gap) <= step)
+        {
+            ots_move_latched = 0;
+        }
+        else
+        {
+            ots_move_ref = OtsWrap(ots_move_ref + (gap > 0.0f ? step : -step));
+        }
     }
 
     if (!ots_move_latched)
@@ -1511,7 +1545,7 @@ int MikuPan_OverShoulderMoveCtrl(MOVE_BOX* mb, sceVu0FVECTOR tv)
     }
 
     r = GetMovePad(0);
-    OtsUpdateMoveReference(r != 10.0f);
+    OtsUpdateMoveReference(r != 10.0f, r);
     run_chk = PlyrMoveStaChk(r);
     PlyrCollisionSetInputState(r, run_chk, pad[0].an_dir[0]);
     GetMoveSpeed(tv);
